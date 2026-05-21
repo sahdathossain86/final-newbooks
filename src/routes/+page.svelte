@@ -1,70 +1,43 @@
 <script>
-  // An array of transaction objects.
-  // Square brackets. Each item is a full object. Commas between items.
-  // Each transaction has a unique id so Svelte can track it efficiently in the list.
-  let transactions = $state([
-    {
-      id: 1,
-      date: '2026-04-01',
-      description: 'Opening cash deposit',
-      debit: 'Cash',
-      credit: "Owner's Equity",
-      amount: 5000
-    },
-    {
-      id: 2,
-      date: '2026-04-03',
-      description: 'Consulting fee from client',
-      debit: 'Cash',
-      credit: 'Revenue',
-      amount: 1200
-    },
-    {
-      id: 3,
-      date: '2026-04-05',
-      description: 'April rent',
-      debit: 'Rent Expense',
-      credit: 'Cash',
-      amount: 800
+// data comes from +page.server.js via the load() function.
+let { data } = $props();
+
+// Wrap the array in $state so the totals below can react to it.
+let transactions = $derived(data.transactions);
+
+  function classify(t) {
+    if (t.credit === 'Revenue') {
+      return 'Revenue';
+    } else if (t.debit.includes('Expense')) {
+      return 'Expense';
+    } else {
+      return 'Other';
     }
-  ]);
-  // Add this INSIDE the <script> block, below the transactions array.
-function classify(t) {
-  if (t.credit === 'Revenue') {
-    return 'Revenue';
-  } else if (t.debit.includes('Expense')) {
-    return 'Expense';
-  } else {
-    return 'Other';
   }
-}
-// Add these THREE derived totals to your <script> block,
-// below the classify() function.
 
-let totalRevenue = $derived(
-  transactions
-    .filter(t => classify(t) === 'Revenue')
-    .reduce((sum, t) => sum + t.amount, 0)
-);
+  // Derived totals convert t.amount to a Number to handle Postgres numeric strings safely
+  let totalRevenue = $derived(
+    transactions
+      .filter(t => classify(t) === 'Revenue')
+      .reduce((sum, t) => sum + Number(t.amount), 0)
+  );
 
-let totalExpenses = $derived(
-  transactions
-    .filter(t => classify(t) === 'Expense')
-    .reduce((sum, t) => sum + t.amount, 0)
-);
+  let totalExpenses = $derived(
+    transactions
+      .filter(t => classify(t) === 'Expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0)
+  );
 
-let netIncome = $derived(totalRevenue - totalExpenses);
+  let netIncome = $derived(totalRevenue - totalExpenses);
 </script>
 
 <div class="max-w-5xl mx-auto p-6 space-y-8">
 
-  <!-- HEADER -->
   <header class="border-b border-slate-200 pb-4">
     <h1 class="text-3xl font-bold text-slate-800">📒 Final New Books</h1>
     <p class="text-slate-500 text-sm mt-1">Track transactions. See your income statement live.</p>
   </header>
 
-  <!-- NEW TRANSACTION FORM -->
   <section class="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
     <h2 class="text-xl font-bold text-slate-800 mb-4">New Transaction</h2>
 
@@ -122,29 +95,27 @@ let netIncome = $derived(totalRevenue - totalExpenses);
     </form>
   </section>
 
-  <!-- INCOME STATEMENT -->
   <section class="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
     <h2 class="text-xl font-bold text-slate-800 mb-4">Income Statement</h2>
 
     <div class="space-y-2">
-  <div class="flex justify-between text-emerald-700 font-medium">
-    <span>Total Revenue</span>
-    <span>${totalRevenue.toFixed(2)}</span>
-  </div>
-  <div class="flex justify-between text-rose-700 font-medium">
-    <span>Total Expenses</span>
-    <span>${totalExpenses.toFixed(2)}</span>
-  </div>
-  <div class="flex justify-between border-t border-slate-300 pt-2 text-lg font-bold">
-    <span>Net Income</span>
-    <span class={netIncome >= 0 ? 'text-emerald-700' : 'text-rose-700'}>
-      ${netIncome.toFixed(2)}
-    </span>
-  </div>
-</div>
+      <div class="flex justify-between text-emerald-700 font-medium">
+        <span>Total Revenue</span>
+        <span>${totalRevenue.toFixed(2)}</span>
+      </div>
+      <div class="flex justify-between text-rose-700 font-medium">
+        <span>Total Expenses</span>
+        <span>${totalExpenses.toFixed(2)}</span>
+      </div>
+      <div class="flex justify-between border-t border-slate-300 pt-2 text-lg font-bold">
+        <span>Net Income</span>
+        <span class={netIncome >= 0 ? 'text-emerald-700' : 'text-rose-700'}>
+          ${netIncome.toFixed(2)}
+        </span>
+      </div>
+    </div>
   </section>
 
-  <!-- TRANSACTIONS LIST -->
   <section class="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
     <h2 class="text-xl font-bold text-slate-800 mb-4">Recent Transactions</h2>
 
@@ -161,25 +132,25 @@ let netIncome = $derived(totalRevenue - totalExpenses);
           </tr>
         </thead>
         <tbody>
-  {#each transactions as t (t.id)}
-    <tr class="border-t border-slate-200 hover:bg-slate-50">
-      <td class="px-3 py-2">{t.date}</td>
-      <td class="px-3 py-2">{t.description}</td>
-      <td class="px-3 py-2">{t.debit}</td>
-      <td class="px-3 py-2">{t.credit}</td>
-      <td class="px-3 py-2 text-right">${t.amount.toFixed(2)}</td>
-     <td class="px-3 py-2">
-  {#if classify(t) === 'Revenue'}
-    <span class="text-emerald-700 font-medium">Revenue</span>
-  {:else if classify(t) === 'Expense'}
-    <span class="text-rose-700 font-medium">Expense</span>
-  {:else}
-    <span class="text-slate-400">Other</span>
-  {/if}
-</td>
-    </tr>
-  {/each}
-</tbody>
+          {#each transactions as t (t.id)}
+            <tr class="border-t border-slate-200 hover:bg-slate-50">
+              <td class="px-3 py-2">{t.date}</td>
+              <td class="px-3 py-2">{t.description}</td>
+              <td class="px-3 py-2">{t.debit}</td>
+              <td class="px-3 py-2">{t.credit}</td>
+              <td class="px-3 py-2 text-right">${Number(t.amount).toFixed(2)}</td>
+              <td class="px-3 py-2">
+                {#if classify(t) === 'Revenue'}
+                  <span class="text-emerald-700 font-medium">Revenue</span>
+                {:else if classify(t) === 'Expense'}
+                  <span class="text-rose-700 font-medium">Expense</span>
+                {:else}
+                  <span class="text-slate-400">Other</span>
+                {/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
       </table>
     </div>
   </section>
